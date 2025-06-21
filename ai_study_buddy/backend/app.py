@@ -7,6 +7,11 @@ from flask_sqlalchemy import SQLAlchemy
 from config import SQLALCHEMY_DATABASE_URI
 from models import db, User, Session
 
+from openai import OpenAI
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+
 
 # Load environment variables
 load_dotenv()

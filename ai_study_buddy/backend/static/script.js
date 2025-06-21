@@ -1,67 +1,65 @@
-const USER_ID = 1;  // Default test user
-
 async function askAI() {
   const question = document.getElementById("question").value;
-  const responseDiv = document.getElementById("answer");
+  const answerBox = document.getElementById("answer");
+  const typing = document.getElementById("typing-indicator");
 
-  if (!question) {
-    responseDiv.innerText = "Please enter a question.";
-    return;
+  if (!question) return;
+
+  typing.classList.remove("hidden");
+  answerBox.textContent = "";
+
+  const response = await fetch("/ask", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question, user_id: 1 })
+  });
+
+  const data = await response.json();
+
+  typing.classList.add("hidden");
+
+  if (data.answer) {
+    answerBox.textContent = data.answer;
+  } else {
+    answerBox.textContent = "Error: " + data.error;
   }
 
-  responseDiv.innerText = "Thinking...";
-
-  try {
-    const res = await fetch("/ask", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ question: question, user_id: USER_ID }),
-    });
-
-    const data = await res.json();
-
-    if (data.answer) {
-      responseDiv.innerText = data.answer;
-      loadHistory(); // Fetch updated history
-    } else if (data.error) {
-      responseDiv.innerText = `Error: ${data.error}`;
-    } else {
-      responseDiv.innerText = "No response received.";
-    }
-  } catch (err) {
-    responseDiv.innerText = "Request failed. Check console.";
-    console.error(err);
-  }
+  document.getElementById("question").value = "";
 }
 
-async function loadHistory() {
-  const historyDiv = document.getElementById("history");
-
-  try {
-    const res = await fetch(`/history/${USER_ID}`);
-    const data = await res.json();
-
-    if (data.history) {
-      historyDiv.innerHTML = "";
-
-      data.history.forEach((entry, index) => {
-        const qaBlock = document.createElement("div");
-        qaBlock.style.marginBottom = "1em";
-        qaBlock.innerHTML = `
-          <strong>Q${index + 1}:</strong> ${entry.question}<br/>
-          <strong>A:</strong> ${entry.answer}<br/>
-          <em style="font-size: 0.8em; color: gray;">${entry.timestamp}</em>
-        `;
-        historyDiv.appendChild(qaBlock);
-      });
-    }
-  } catch (err) {
-    historyDiv.innerText = "Failed to load history.";
-    console.error(err);
-  }
+// Particle animation background
+const canvas = document.getElementById('particles');
+const ctx = canvas.getContext('2d');
+let w, h;
+function resize() {
+  w = canvas.width = window.innerWidth;
+  h = canvas.height = window.innerHeight;
 }
+window.addEventListener('resize', resize);
+resize();
 
-// Load history on page load
-window.onload = loadHistory;
+const dots = Array(80).fill().map(() => ({
+  x: Math.random() * w,
+  y: Math.random() * h,
+  r: Math.random() * 2 + 1,
+  dx: Math.random() - 0.5,
+  dy: Math.random() - 0.5
+}));
+
+function animate() {
+  ctx.clearRect(0, 0, w, h);
+  for (let dot of dots) {
+    dot.x += dot.dx;
+    dot.y += dot.dy;
+
+    if (dot.x < 0 || dot.x > w) dot.dx *= -1;
+    if (dot.y < 0 || dot.y > h) dot.dy *= -1;
+
+    ctx.beginPath();
+    ctx.arc(dot.x, dot.y, dot.r, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(144,202,249,0.5)";
+    ctx.fill();
+  }
+  requestAnimationFrame(animate);
+}
+animate();
