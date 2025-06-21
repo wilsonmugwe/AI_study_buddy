@@ -1,10 +1,12 @@
+from flask import render_template
 from flask import Flask, request, jsonify
 from dotenv import load_dotenv
 import os
 import openai
 from flask_sqlalchemy import SQLAlchemy
 from config import SQLALCHEMY_DATABASE_URI
-from models import db
+from models import db, User, Session
+
 
 # Load environment variables
 load_dotenv()
@@ -18,35 +20,58 @@ db.init_app(app)
 # Home route
 @app.route('/')
 def home():
-    api_key = os.getenv("OPENAI_API_KEY")
-    return jsonify({"message": "AI Study Buddy is live", "api_key_present": bool(api_key)})
+    return render_template("index.html")
 
-# Ask AI route
+
+
+
 @app.route('/ask', methods=['POST'])
 def ask_ai():
     data = request.get_json()
     question = data.get("question")
+    user_id = data.get("user_id", 1)
 
     if not question:
         return jsonify({"error": "No question provided"}), 400
 
-    openai.api_key = os.getenv("OPENAI_API_KEY")
-
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "You are a helpful study assistant."},
+                {"role": "system", "content": "You are a helpful study assistant. Only answer academic questions."},
                 {"role": "user", "content": question}
             ]
         )
-        answer = response['choices'][0]['message']['content'].strip()
+        answer = response.choices[0].message.content.strip()
+
+        session_entry = Session(user_id=user_id, question=question, answer=answer)
+        db.session.add(session_entry)
+        db.session.commit()
+
         return jsonify({"question": question, "answer": answer})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# Run the app
-if __name__ == '__main__':
+
+@app.route('/history/<int:user_id>', methods=['GET'])
+def get_history(user_id):
+    try:
+        sessions = Session.query.filter_by(user_id=user_id).order_by(Session.created_at.desc()).limit(10).all()
+
+        history = [
+            {
+                "question": s.question,
+                "answer": s.answer,
+                "timestamp": s.created_at.strftime("%Y-%m-%d %H:%M:%S")
+            } for s in sessions
+        ]
+
+        return jsonify({"history": history})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+if __name__ == "__main__":
     with app.app_context():
         db.create_all()
     app.run(debug=True)
